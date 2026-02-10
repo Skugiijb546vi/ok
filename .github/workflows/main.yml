@@ -1,0 +1,51 @@
+name: Video_to_HuggingFace
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Direct Link (Seedr)'
+        required: true
+      filename:
+        description: 'Movie Name (e.g. movie1.mp4)'
+        required: true
+        default: 'movie.mp4'
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🏗️ Setup
+        run: |
+          sudo apt-get update && sudo apt-get install -y aria2
+          pip install huggingface_hub
+
+      - name: ⬇️ Download Movie
+        run: |
+          aria2c --max-connection-per-server=16 --split=16 -o "temp_file" "${{ github.event.inputs.video_url }}"
+
+      - name: 🚀 Upload to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -c "
+          import os
+          from huggingface_hub import HfApi
+          
+          token = os.getenv('HF_TOKEN')
+          # لێرە ناوی دروستی داتاسێتەکەی تۆم داناوە
+          repo_id = 'Sarkoakram/sarko761'
+          
+          api = HfApi()
+          try:
+              api.upload_file(
+                  path_or_fileobj='temp_file',
+                  path_in_repo='${{ github.event.inputs.filename }}',
+                  repo_id=repo_id,
+                  repo_type='dataset',
+                  token=token
+              )
+              print('✅ Success! Movie uploaded to ' + repo_id)
+          except Exception as e:
+              print(f'❌ Failed: {e}')
+              exit(1)
+          "
